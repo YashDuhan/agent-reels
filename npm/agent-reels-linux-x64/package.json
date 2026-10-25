@@ -1,5 +1,5 @@
 {
-  "name": "agent-reels-linux-x64",
+  "name": "@yash9729/agent-reels-linux-x64",
   "version": "0.1.0",
   "description": "agent-reels player binary for Linux x64",
   "license": "MIT",

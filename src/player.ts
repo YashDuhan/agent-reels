@@ -8,9 +8,10 @@ import { log, type Config } from "./config.js";
 export type PlayerAction = "play" | "pause" | "show" | "set" | "quit";
 
 const EXE = process.platform === "win32" ? "agent-reels-player.exe" : "agent-reels-player";
+const BINARY_PACKAGE = `@yash9729/agent-reels-${process.platform}-${process.arch}`;
 
 /**
- * The player binary (see /player): from the `agent-reels-<platform>-<arch>` package
+ * The player binary (see /player): from the `@yash9729/agent-reels-<platform>-<arch>` package
  * when installed from npm, or the local cargo build in a checkout.
  */
 export function playerPath(): string | null {
@@ -18,7 +19,7 @@ export function playerPath(): string | null {
   const candidates = [path.join(root, "player", "target", "release", EXE)];
   try {
     const require = createRequire(import.meta.url);
-    const pkg = require.resolve(`agent-reels-${process.platform}-${process.arch}/package.json`);
+    const pkg = require.resolve(`${BINARY_PACKAGE}/package.json`);
     candidates.unshift(path.join(path.dirname(pkg), "bin", EXE));
   } catch {
     // no prebuilt binary for this platform

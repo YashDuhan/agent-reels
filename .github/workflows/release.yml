@@ -1,5 +1,5 @@
 # Builds the player for each platform, smoke-tests it, and (on a v* tag) publishes
-# the per-platform binary packages and then the CLI to npm. Needs an NPM_TOKEN secret.
+# the per-platform binary packages and then the CLI to npm via trusted publishing.
 name: release
 
 on:
@@ -93,26 +93,40 @@ jobs:
     if: startsWith(github.ref, 'refs/tags/v')
     needs: [player, cli]
     runs-on: ubuntu-22.04
+    # npm trusted publishing: npm verifies this workflow through GitHub's OIDC token,
+    # so no npm token or one-time password is involved. Set up per package on npmjs.com.
+    permissions:
+      contents: read
+      id-token: write
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
         with:
           node-version: 22
           registry-url: https://registry.npmjs.org
+      - name: npm with trusted publishing support
+        run: npm install -g npm@latest
       - uses: actions/download-artifact@v8
         with:
           path: npm
       - name: Publish platform packages, then the CLI
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
+          # Skips what's already on npm, so a half-finished release can be re-run.
+          publish() {
+            local name; name="$(node -p 'require("./package.json").name')"
+            if npm view "$name@$VERSION" version >/dev/null 2>&1; then
+              echo "$name@$VERSION is already published"
+            else
+              npm publish --access public
+            fi
+          }
           for dir in npm/agent-reels-*/; do
-            (cd "$dir" && npm pkg set version="$VERSION" && chmod +x bin/* && npm publish --access public)
+            (cd "$dir" && npm pkg set version="$VERSION" && chmod +x bin/* && publish)
           done
           npm pkg set version="$VERSION" \
-            "optionalDependencies.agent-reels-linux-x64=$VERSION" \
-            "optionalDependencies.agent-reels-win32-x64=$VERSION"
+            "optionalDependencies[@yash9729/agent-reels-linux-x64]=$VERSION" \
+            "optionalDependencies[@yash9729/agent-reels-win32-x64]=$VERSION"
           npm ci
           npm run build
-          npm publish --access public
+          publish

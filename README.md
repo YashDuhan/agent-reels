@@ -74,9 +74,10 @@ upgrading Node or moving the checkout.
 ## Releasing
 
 `.github/workflows/release.yml` builds the player on Ubuntu and Windows (with a start/quit smoke
-test on Windows) and checks the CLI on both. On a `v*` tag it publishes `agent-reels-linux-x64` and
-`agent-reels-win32-x64`, which hold just the player binary, then `agent-reels` with those as
-optional dependencies, so npm installs only the one for your platform.
+test on Windows) and checks the CLI on both. On a `v*` tag it publishes `@yash9729/agent-reels-linux-x64`
+and `@yash9729/agent-reels-win32-x64`, which hold just the player binary, then `agent-reels` with those as
+optional dependencies, so npm installs only the one for your platform. Publishing uses npm's
+trusted publishing (configured per package on npmjs.com), so the workflow needs no npm token.
 
 ## License
 
