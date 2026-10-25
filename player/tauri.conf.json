@@ -1,0 +1,9 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "agent-reels",
+  "version": "0.1.0",
+  "identifier": "dev.agentreels.player",
+  "build": { "frontendDist": "ui" },
+  "app": { "windows": [], "security": { "csp": null } },
+  "bundle": { "active": false, "icon": ["icons/icon.png", "icons/icon.ico"] }
+}

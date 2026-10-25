@@ -1,0 +1,19 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "reels-window-controls",
+  "description": "Lets the page's drag and resize controls move and resize the player window. Nothing else is exposed to Instagram.",
+  "windows": [
+    "main"
+  ],
+  "remote": {
+    "urls": [
+      "https://www.instagram.com/*",
+      "https://instagram.com/*"
+    ]
+  },
+  "permissions": [
+    "core:window:allow-start-dragging",
+    "core:window:allow-start-resize-dragging",
+    "allow-set-pinned"
+  ]
+}

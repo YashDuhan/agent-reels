@@ -1,0 +1,47 @@
+{
+  "name": "agent-reels",
+  "version": "0.1.0",
+  "description": "Instagram Reels in a floating window while your coding agent (Claude Code, OpenCode) works",
+  "author": "Yash Duhan",
+  "license": "MIT",
+  "type": "module",
+  "bin": {
+    "reels": "dist/cli.js"
+  },
+  "files": [
+    "dist",
+    "shared"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "prepublishOnly": "npm run build"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "keywords": [
+    "claude-code",
+    "opencode",
+    "instagram",
+    "reels",
+    "coding-agent",
+    "cli"
+  ],
+  "dependencies": {
+    "@clack/prompts": "^1.8.1",
+    "puppeteer-core": "^25.16.0"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.5",
+    "typescript": "^7.0.2"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/YashDuhan/agent-reels.git"
+  },
+  "homepage": "https://github.com/YashDuhan/agent-reels#readme",
+  "bugs": {
+    "url": "https://github.com/YashDuhan/agent-reels/issues"
+  }
+}

@@ -1,0 +1,118 @@
+# Builds the player for each platform, smoke-tests it, and (on a v* tag) publishes
+# the per-platform binary packages and then the CLI to npm. Needs an NPM_TOKEN secret.
+name: release
+
+on:
+  push:
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  player:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-22.04
+            pkg: linux-x64
+            exe: agent-reels-player
+          - os: windows-latest
+            pkg: win32-x64
+            exe: agent-reels-player.exe
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Linux build dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev libsoup-3.0-dev libjavascriptcoregtk-4.1-dev librsvg2-dev
+
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: player
+
+      - name: Build player
+        working-directory: player
+        run: cargo build --release
+
+      - name: Smoke test (Windows) - player starts, stays up, quits
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $exe = "player/target/release/agent-reels-player.exe"
+          Start-Process $exe -ArgumentList "play"
+          Start-Sleep -Seconds 8
+          $p = Get-Process agent-reels-player -ErrorAction SilentlyContinue
+          if (-not $p) { throw "player exited early" }
+          & $exe quit
+          Start-Sleep -Seconds 3
+          if (Get-Process agent-reels-player -ErrorAction SilentlyContinue) { throw "player did not quit" }
+
+      - name: Package binary
+        shell: bash
+        run: cp player/target/release/${{ matrix.exe }} npm/agent-reels-${{ matrix.pkg }}/bin/
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: agent-reels-${{ matrix.pkg }}
+          path: npm/agent-reels-${{ matrix.pkg }}
+
+  cli:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-22.04, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+      - run: npm run build
+      - run: node dist/cli.js --help
+      - name: Hook install/uninstall round trip in a scratch home
+        shell: bash
+        run: |
+          export HOME="$RUNNER_TEMP/home" USERPROFILE="$RUNNER_TEMP/home"
+          mkdir -p "$HOME/.claude"
+          echo '{"theme":"dark"}' > "$HOME/.claude/settings.json"
+          node --input-type=module -e '
+            const { claude } = await import("./dist/integrations/claude.js");
+            claude.install({ openOn: "launch", agents: ["claude"], player: "app", autoAdvance: true, sound: true });
+            claude.install({ openOn: "launch", agents: ["claude"], player: "app", autoAdvance: true, sound: true });
+            if (!claude.uninstall()) throw new Error("uninstall found nothing");
+          ' dist/cli.js
+          node -e 'const s=require(process.env.HOME+"/.claude/settings.json"); if (JSON.stringify(s)!==JSON.stringify({theme:"dark"})) throw new Error("settings not restored: "+JSON.stringify(s))'
+
+  publish:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [player, cli]
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org
+      - uses: actions/download-artifact@v4
+        with:
+          path: npm
+      - name: Publish platform packages, then the CLI
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          for dir in npm/agent-reels-*/; do
+            (cd "$dir" && npm pkg set version="$VERSION" && chmod +x bin/* && npm publish --access public)
+          done
+          npm pkg set version="$VERSION" \
+            "optionalDependencies.agent-reels-linux-x64=$VERSION" \
+            "optionalDependencies.agent-reels-win32-x64=$VERSION"
+          npm ci
+          npm run build
+          npm publish --access public
