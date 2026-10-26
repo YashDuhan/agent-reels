@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { parseArgs } from "node:util";
-import { browserAction, login, reelsCommand, setup, slash, start, stop, trigger, uninstall } from "./commands.js";
+import { browserAction, login, reelsCommand, setup, slash, start, stop, trigger, uninstall, windowAction } from "./commands.js";
 
 const HELP = `reels: Instagram Reels while your coding agent works
 
@@ -9,6 +9,8 @@ Usage:
   reels start                 Open reels (if needed) and play
   reels stop                  Pause
   reels autoscroll [on|off]   Move to the next reel when one ends (no value toggles)
+  reels toggle                Hide or show the reels window (also its hotkey, Ctrl+Shift+H by default)
+  reels mute                  Mute or unmute the reels window (also its hotkey, Ctrl+Shift+M by default)
   reels login                 Log in to Instagram
   reels uninstall             Remove the agent hooks and commands
 
@@ -36,6 +38,10 @@ switch (values.help ? "help" : positionals[0]) {
     break;
   case "stop":
     await stop(values.quiet);
+    break;
+  case "toggle":
+  case "mute":
+    windowAction(positionals[0] as "toggle" | "mute");
     break;
   case "browser": {
     // Internal: browser mode work handed off by hooks and /reels.

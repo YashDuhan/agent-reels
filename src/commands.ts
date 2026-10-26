@@ -3,6 +3,9 @@ import { spawn } from "node:child_process";
 import * as p from "@clack/prompts";
 import { chromeApply, chromeLogin, chromePlay, DEFAULT_PORT, detectBrowsers } from "./chrome.js";
 import {
+  DEFAULT_HOTKEY,
+  DEFAULT_MUTE_HOTKEY,
+  DEFAULT_WINDOW_SIZE,
   HOME_DIR,
   LAST_TRIGGER_FILE,
   loadConfig,
@@ -25,6 +28,30 @@ function bail(value: unknown): void {
     p.cancel("Setup cancelled, nothing was changed.");
     process.exit(0);
   }
+}
+
+const MODIFIERS: Record<string, string> = {
+  ctrl: "Ctrl",
+  control: "Ctrl",
+  shift: "Shift",
+  alt: "Alt",
+  option: "Alt",
+  super: "Super",
+  win: "Super",
+  cmd: "Super",
+  meta: "Super",
+};
+
+/** "ctrl + shift + h" -> "Ctrl+Shift+H", "off" or "" -> "", or null if it isn't a shortcut. */
+export function normalizeHotkey(input: string): string | null {
+  const text = input.trim();
+  if (text === "" || text.toLowerCase() === "off" || text.toLowerCase() === "none") return "";
+  const parts = text.split("+").map((s) => s.trim());
+  const key = parts.pop()!;
+  const mods = parts.map((m) => MODIFIERS[m.toLowerCase()]);
+  if (mods.length === 0 || mods.some((m) => !m)) return null;
+  if (!/^([a-z0-9]|f([1-9]|1[0-9]|2[0-4]))$/i.test(key)) return null;
+  return [...new Set(mods)].join("+") + "+" + key.toUpperCase();
 }
 
 function requireConfig(): Config {
@@ -112,6 +139,28 @@ export async function setup(): Promise<void> {
   const sound = await p.confirm({ message: "Play with sound?", initialValue: previous?.sound ?? true });
   bail(sound);
 
+
+  let hotkey = previous?.hotkey ?? DEFAULT_HOTKEY;
+  let muteHotkey = previous?.muteHotkey ?? DEFAULT_MUTE_HOTKEY;
+  if (player === "app") {
+    const askHotkey = async (message: string, current: string, other?: string) => {
+      const typed = await p.text({
+        message: `${message} ("off" for none)`,
+        initialValue: current || "off",
+        validate: (v) => {
+          const key = normalizeHotkey(v ?? "");
+          if (key === null) return "Use modifiers and a key, like Ctrl+Shift+H or Alt+F9";
+          if (key && key === other) return "That's already the other hotkey";
+          return undefined;
+        },
+      });
+      bail(typed);
+      return normalizeHotkey(typed as string)!;
+    };
+    hotkey = await askHotkey("Hotkey to hide and show the reels window", hotkey);
+    muteHotkey = await askHotkey("Hotkey to mute and unmute reels", muteHotkey, hotkey);
+  }
+
   const config: Config = {
     agents: agents as AgentId[],
     player: player as PlayerKind,
@@ -123,6 +172,10 @@ export async function setup(): Promise<void> {
     openOn: openOn as OpenOn,
     autoAdvance: autoAdvance as boolean,
     sound: sound as boolean,
+    hotkey,
+    muteHotkey,
+    // Not asked: kept from config.json, where it can be edited by hand.
+    windowSize: previous?.windowSize ?? DEFAULT_WINDOW_SIZE,
   };
 
   const chosen = INTEGRATIONS.filter((i) => (agents as string[]).includes(i.id));
@@ -131,6 +184,9 @@ export async function setup(): Promise<void> {
     [
       ...chosen.map((i) => `+ ${i.label}: ${i.describe(config)}`),
       ...removed.map((i) => `- ${i.label}: remove reels hook if present`),
+      ...(config.player === "app"
+        ? [`+ Hotkeys: hide/show ${config.hotkey || "off"}, mute ${config.muteHotkey || "off"}`]
+        : []),
       `+ Config in ${HOME_DIR}`,
       "",
       "Existing config files are backed up to *.reels-backup first.",
@@ -145,6 +201,8 @@ export async function setup(): Promise<void> {
   }
 
   saveConfig(config);
+  // Hands an open reels window the new hotkey and options; does nothing if none is open.
+  if (config.player === "app") runPlayer("set", config);
   for (const i of chosen) {
     i.install(config);
     p.log.success(`${i.label} connected`);
@@ -238,6 +296,20 @@ export async function start(quiet = false): Promise<void> {
 export async function stop(quiet = false): Promise<void> {
   await send("pause", requireConfig(), !quiet);
   if (!quiet) console.log("⏸ Reels paused");
+}
+
+/**
+ * `toggle` hides or shows the reels window, `mute` mutes or unmutes it, like their
+ * hotkeys; bind them on compositors without global hotkeys.
+ */
+export function windowAction(action: "toggle" | "mute"): void {
+  const config = requireConfig();
+  if (config.player !== "app") {
+    console.error(`reels: ${action} only works for the reels window; pick it in \`reels setup\``);
+    process.exitCode = 1;
+    return;
+  }
+  if (!runPlayer(action, config)) process.exitCode = 1;
 }
 
 /**

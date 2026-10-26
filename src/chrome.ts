@@ -15,8 +15,6 @@ const PROFILE_DIR = path.join(HOME_DIR, "profile");
 const REELS_URL = "https://www.instagram.com/reels/";
 const LOGIN_URL = "https://www.instagram.com/accounts/login/";
 export const DEFAULT_PORT = 9339;
-const WIDTH = 460;
-const HEIGHT = 640;
 
 const CONTROLLER = fs.readFileSync(
   path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "shared", "controller.js"),
@@ -96,7 +94,7 @@ async function isUp(config: Config): Promise<boolean> {
 }
 
 /** Hyprland tiles new windows; float this one at reels size. Left unpinned so it can be dragged. */
-function floatOnHyprland(pid: number): void {
+function floatOnHyprland(pid: number, { width, height }: Config["windowSize"]): void {
   if (!process.env.HYPRLAND_INSTANCE_SIGNATURE) return;
   for (let i = 0; i < 20; i++) {
     const out = spawnSync("hyprctl", ["clients", "-j"], { encoding: "utf8" });
@@ -110,11 +108,11 @@ function floatOnHyprland(pid: number): void {
       const a = client.address;
       const lua = [
         `hl.dsp.window.float({ action = 'enable', window = 'address:${a}' })`,
-        `hl.dsp.window.resize({ x = ${WIDTH}, y = ${HEIGHT}, relative = false, window = 'address:${a}' })`,
+        `hl.dsp.window.resize({ x = ${width}, y = ${height}, relative = false, window = 'address:${a}' })`,
       ];
       const ok = lua.every((d) => spawnSync("hyprctl", ["dispatch", d], { encoding: "utf8" }).stdout.trim() === "ok");
       if (!ok) {
-        spawnSync("hyprctl", ["--batch", `dispatch setfloating address:${a} ; dispatch resizewindowpixel exact ${WIDTH} ${HEIGHT},address:${a}`]);
+        spawnSync("hyprctl", ["--batch", `dispatch setfloating address:${a} ; dispatch resizewindowpixel exact ${width} ${height},address:${a}`]);
       }
       return;
     }
@@ -139,10 +137,11 @@ async function connect(config: Config, url = REELS_URL): Promise<{ browser: Brow
         "--disable-backgrounding-occluded-windows",
         "--no-first-run",
         "--no-default-browser-check",
-        `--window-size=${WIDTH},${HEIGHT}`,
+        `--window-size=${config.windowSize.width},${config.windowSize.height}`,
         `--app=${url}`,
       ],
-      { detached: true, stdio: "ignore", windowsHide: true },
+      // No windowsHide: Chrome applies it to its first window, so the reels window would start hidden.
+      { detached: true, stdio: "ignore" },
     );
     child.unref();
     launched = true;
@@ -151,7 +150,7 @@ async function connect(config: Config, url = REELS_URL): Promise<{ browser: Brow
       if (Date.now() > deadline) throw new Error(`Browser did not start (${config.browserPath})`);
       await sleep(250);
     }
-    if (child.pid) floatOnHyprland(child.pid);
+    if (child.pid) floatOnHyprland(child.pid, config.windowSize);
   }
   const browser = await puppeteer.connect({ browserURL: `http://127.0.0.1:${port(config)}`, defaultViewport: null });
   return { browser, launched };

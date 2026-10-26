@@ -1,7 +1,7 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "reels-window-controls",
-  "description": "Lets the page's drag and resize controls move and resize the player window. Nothing else is exposed to Instagram.",
+  "description": "Lets the page's drag, resize and close controls and its right-click menu move, resize, close and keep on top the player window. Nothing else is exposed to Instagram.",
   "windows": [
     "main"
   ],
@@ -14,6 +14,8 @@
   "permissions": [
     "core:window:allow-start-dragging",
     "core:window:allow-start-resize-dragging",
-    "allow-set-pinned"
+    "allow-set-pinned",
+    "allow-quit-player",
+    "allow-set-on-top"
   ]
 }

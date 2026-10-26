@@ -36,9 +36,16 @@ sudo pacman -S --needed gst-plugins-good gst-plugins-bad gst-libav
 | `reels start` | `/reels` | `/reels` | Open and play |
 | `reels stop` | `/reels stop` | `/reels-stop` | Pause |
 | `reels autoscroll [on\|off]` | `/reels autoscroll [on\|off]` | `/reels-autoscroll` | Move to the next reel when one ends (no value toggles) |
+| `reels toggle` | | | Hide the Reels window (paused, off the taskbar) or bring it back |
+| `reels mute` | | | Mute or unmute the Reels window |
 | `reels setup` | | | Change any setting |
 | `reels login` | | | Log in to Instagram |
 | `reels uninstall` | | | Remove the hooks and commands |
+
+The Reels window has global hotkeys for `reels toggle` (**Ctrl+Shift+H**) and `reels mute`
+(**Ctrl+Shift+M**), and a close button in its top-right corner. Change or turn off the hotkeys in
+`reels setup`. Wayland has no global hotkeys, so on Hyprland bind them yourself, e.g.
+`bind = CTRL SHIFT, H, exec, reels toggle`.
 
 The slash commands never reach the model. In OpenCode they run immediately. In Claude Code,
 `/reels` runs immediately where mods are available (2.1.287 and later, still rolling out);

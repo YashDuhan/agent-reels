@@ -5,7 +5,7 @@ import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
 import { log, type Config } from "./config.js";
 
-export type PlayerAction = "play" | "pause" | "show" | "set" | "quit";
+export type PlayerAction = "play" | "pause" | "show" | "toggle" | "mute" | "set" | "quit";
 
 const EXE = process.platform === "win32" ? "agent-reels-player.exe" : "agent-reels-player";
 const BINARY_PACKAGE = `@yash9729/agent-reels-${process.platform}-${process.arch}`;
@@ -37,7 +37,15 @@ export function runPlayer(action: PlayerAction, config: Config): boolean {
     log(`no player binary for ${process.platform}-${process.arch}`);
     return false;
   }
-  spawn(bin, [action, `--sound=${config.sound ? 1 : 0}`, `--advance=${config.autoAdvance ? 1 : 0}`], {
+  const flags = [
+    `--sound=${config.sound ? 1 : 0}`,
+    `--advance=${config.autoAdvance ? 1 : 0}`,
+    `--hotkey=${config.hotkey}`,
+    `--mute-hotkey=${config.muteHotkey}`,
+    `--width=${config.windowSize.width}`,
+    `--height=${config.windowSize.height}`,
+  ];
+  spawn(bin, [action, ...flags], {
     detached: true,
     stdio: "ignore",
     windowsHide: true,
